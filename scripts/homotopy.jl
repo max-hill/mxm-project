@@ -67,40 +67,45 @@ log_L = log((1+τ)/16)*N₊+log((1-τ)/16)*N₋
 Lagrangian=log_L + λ*
 
 
+
+# case 2
 f=[f₋₋₋₋, f₋₋₋₊, f₋₋₊₋, f₋₋₊₊, f₋₊₋₋, f₋₊₋₊, f₋₊₊₋, f₋₊₊₊, f₊₋₋₋, f₊₋₋₊, f₊₋₊₋,f₊₋₊₊, f₊₊₋₋, f₊₊₋₊, f₊₊₊₋, f₊₊₊₊]
 @var f[1:16]
 f[1]
 f[2]
 
-## S = sum(f)-1
-T = θ₁*θ₅*θ₂ - 1/2
-Z = [θ₃; θ₄]
-H = f-h
+
+# constraints 
+g = sum(f) - 1
+C1 = (f[1] - f[2] - f[3] + f[4] - f[5] + f[6] + f[7] - f[8] - f[9] + f[10] + f[11] - f[12] + f[13] - f[14] - f[15] + f[16])*(f[1] + f[2] + f[3] + f[4] + f[5] + f[6] + f[7] + f[8] + f[9] + f[10] + f[11] + f[12] + f[13] + f[14] + f[15] + f[16]) - (f[1] - f[2] - f[3] + f[4] + f[5] - f[6] - f[7] + f[8] + f[9] - f[10] - f[11] + f[12] + f[13] - f[14] - f[15] + f[16])*(f[1] + f[2] + f[3] + f[4] - f[5] - f[6] - f[7] - f[8] - f[9] - f[10] - f[11] - f[12] + f[13] + f[14] + f[15] + f[16])
+
+C2 = (f[1] + f[2] - f[3] - f[4] + f[5] + f[6] - f[7] - f[8] - f[9] - f[10] + f[11] + f[12] - f[13] - f[14] + f[15] + f[16])*(f[1] - f[2] + f[3] - f[4] - f[5] + f[6] - f[7] + f[8] + f[9] - f[10] + f[11] - f[12] - f[13] + f[14] - f[15] + f[16]) - (f[1] + f[2] - f[3] - f[4] - f[5] - f[6] + f[7] + f[8] + f[9] + f[10] - f[11] - f[12] - f[13] - f[14] + f[15] + f[16])*(f[1] - f[2] + f[3] - f[4] + f[5] - f[6] + f[7] - f[8] - f[9] + f[10] - f[11] + f[12] - f[13] + f[14] - f[15] + f[16])
 
 
-###_____________________________________________________________________________
-##
-## Define the critical equations + constraints
-###_____________________________________________________________________________
-
+# likelihood 
 @var n[1:16]
-@var logL Lagrangian λ[1:4]
+@var logL Lagrangian λ[1:3]
 logL = sum(n.*log.(f))
 logL
-Lagrangian = logL + λ'*[S;T;Z]
+Lagrangian = logL + λ'*[g;C1;C2]
 
-dL=differentiate(Lagrangian, θ)
+dL = dL=differentiate(Lagrangian, f)
 
-dL
 F = Diagonal(f)
 
 corrected_dL = F*dL
+
+
 # system of equations
 
-C = System([corrected_dL; S; T; H; Z], variables = [f; θ; λ], parameters = n)
+C = System([corrected_dL; g; C1; C2], variables = [f; λ], parameters = n)
 n₀ = rand(Float64, 16)
 
 res = solve(C; target_parameters = n₀) 
+
+real_solutions(res)
+
+
 
 ###_____________________________________________________________________________
 ##
