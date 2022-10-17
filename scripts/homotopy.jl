@@ -128,6 +128,8 @@ real_solutions(res)
 # The next two constraints are for the case when the true topology is 13|24
 
 
+# tbd
+
 
 ###_____________________________________________________________________________
 ##
@@ -143,15 +145,28 @@ H = differentiate(differentiate(Lagrangian,f),f) # The Hessian of the Lagrangian
 
 random_u = n₀ # the data
 
-function classify_critical_point(critical_point::Array)    "This function implements the bordered determinental criterion (i.e. 2nd derivative test) to test if a given real critical point is a local maximum. Specifically, we follow Theorem 12 on page 155 of Magnus and Neudecker, Jan R. and Heinz. Matrix Differential Calculus with Applications in Statistics and Econometrics. Second (revised) edition, 1999. It returns 1 if the point is a maximum, -1 if the point is a minimum, and 0 if the test is indeterminate."
+function classify_critical_point(critical_point::Array)
+
+    "This function implements the bordered determinental criterion (i.e. 2nd
+    derivative test) to test if a given real critical point is a local maximum.
+    Specifically, we follow Theorem 12 on page 155 of Magnus and Neudecker, Jan
+    R. and Heinz. Matrix Differential Calculus with Applications in Statistics
+    and Econometrics. Second (revised) edition, 1999. It returns 1 if the point
+    is a maximum, -1 if the point is a minimum, and 0 if the test is
+    indeterminate."
+
     c=critical_point[1:2^n] # The pᵢ's
     d=critical_point[(2^n+1):2^n+m] # The λᵢ's
-    M=fill(0,m,m) # Square m×m matrix of zeros.    # First, we need to test that the the m×m upper-left square submatrix of J
+    M=fill(0,m,m) # Square m×m matrix of zeros.
+
+    # First, we need to test that the the m×m upper-left square submatrix of J
     # has nonzero determinant when evaluated at the critical point. Magnus et al
     # claim this condition is necessary but that we can always relabel our
     # variables so that this condition holds. I have not implemented relabeling
     # but will if it becomes necessary to do so. For now, the function just
-    # tests to see if the condition holds and gives up if it does not.    Jₘ=view(J,:,1:m)
+    # tests to see if the condition holds and gives up if it does not.
+
+    Jₘ=view(J,:,1:m)
     Jₘ=subs(Jₘ,[p;λ;u]=>[c;d;random_u]) # evaluate it at the critical point
     Jₘ=convert(Array{Float32,2},Jₘ) # convert it to float
     if det(Jₘ)==0
@@ -161,6 +176,7 @@ function classify_critical_point(critical_point::Array)    "This function implem
         for r in (m+1):2^n
             Hᵣ=view(H,1:r,1:r) # r×r submatrix of the Hessian of the Lagrangian
             Jᵣ=view(J,:,1:r)   # First r columns of the Jacobian of constraints
+
             # Next, we construct Δ, which is a symmetric (m+r)×(m+r) minor of
             # the (m+n)×(m+n) bordered Hessian. (In particular, Δ is the matrix
             # defined by equation (6) in Magnus et al. on page 155.) We then
@@ -168,13 +184,16 @@ function classify_critical_point(critical_point::Array)    "This function implem
             # parameters used when constructing our system. For computational
             # reasons we then tell Julia to treat the entries of Δ as numbers,
             # rather than symbolic expressions, and compute its determinant.
+            
             Δ_matrix = [M Jᵣ;Jᵣ' Hᵣ]
             Δ_matrix = subs(Δ_matrix, [p;λ;u]=>[c;d;random_u])
             Δ_matrix = convert(Array{Float32,2},Δ_matrix)
             Δ_det = prod(eigvals(Δ_matrix))
+            
             # Collect the determinant into a temporary vector.
             tmp_vector=[tmp_vector;Δ_det]
         end
+        
         # Finally, check the determinental condition for classification.
         if [tmp_vector[i]*(-1)^(i+m)>0 for i in 1:(2^n-m)] == fill(true, 2^n-m)
             return 1 # yes, maximum. note i=r-m
