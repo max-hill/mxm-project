@@ -140,11 +140,13 @@ J = differentiate(C,f) # where C is a vector of the constraints (e.g.
                        # C=[constraint1; constraint2; constraint3]). J is the
                        # jacobian of the constraints
 m = 3 # number of constraints (3 in our case)
-n = 4 # number of leaves (4 in our case)
+N = 4 # number of leaves (4 in our case)
 H = differentiate(differentiate(Lagrangian,f),f) # The Hessian of the Lagrangian.
 
-random_u = n₀ # the data
+random_n = n₀ # the data
+n
 
+###
 function classify_critical_point(critical_point::Array)
 
     "This function implements the bordered determinental criterion (i.e. 2nd
@@ -155,8 +157,8 @@ function classify_critical_point(critical_point::Array)
     is a maximum, -1 if the point is a minimum, and 0 if the test is
     indeterminate."
 
-    c=critical_point[1:2^n] # The pᵢ's
-    d=critical_point[(2^n+1):2^n+m] # The λᵢ's
+    c=critical_point[1:2^N] # The pᵢ's
+    d=critical_point[(2^N+1):2^N+m] # The λᵢ's
     M=fill(0,m,m) # Square m×m matrix of zeros.
 
     # First, we need to test that the the m×m upper-left square submatrix of J
@@ -167,18 +169,18 @@ function classify_critical_point(critical_point::Array)
     # tests to see if the condition holds and gives up if it does not.
 
     Jₘ=view(J,:,1:m)
-    Jₘ=subs(Jₘ,[p;λ;u]=>[c;d;random_u]) # evaluate it at the critical point
+    Jₘ=subs(Jₘ,[f;λ;n]=>[c;d;random_n]) # evaluate it at the critical point
     Jₘ=convert(Array{Float32,2},Jₘ) # convert it to float
     if det(Jₘ)==0
         return "Error: unmet condition. Indeterminate."
     else
         tmp_vector=[]
-        for r in (m+1):2^n
+        for r in (m+1):2^N
             Hᵣ=view(H,1:r,1:r) # r×r submatrix of the Hessian of the Lagrangian
             Jᵣ=view(J,:,1:r)   # First r columns of the Jacobian of constraints
 
             # Next, we construct Δ, which is a symmetric (m+r)×(m+r) minor of
-            # the (m+n)×(m+n) bordered Hessian. (In particular, Δ is the matrix
+            # the (m+N)×(m+N) bordered Hessian. (In particular, Δ is the matrix
             # defined by equation (6) in Magnus et al. on page 155.) We then
             # evaluate Δ at the critical point, and with the randomly-chosen
             # parameters used when constructing our system. For computational
@@ -186,7 +188,7 @@ function classify_critical_point(critical_point::Array)
             # rather than symbolic expressions, and compute its determinant.
             
             Δ_matrix = [M Jᵣ;Jᵣ' Hᵣ]
-            Δ_matrix = subs(Δ_matrix, [p;λ;u]=>[c;d;random_u])
+            Δ_matrix = subs(Δ_matrix, [f;λ;n]=>[c;d;random_n])
             Δ_matrix = convert(Array{Float32,2},Δ_matrix)
             Δ_det = prod(eigvals(Δ_matrix))
             
@@ -195,12 +197,16 @@ function classify_critical_point(critical_point::Array)
         end
         
         # Finally, check the determinental condition for classification.
-        if [tmp_vector[i]*(-1)^(i+m)>0 for i in 1:(2^n-m)] == fill(true, 2^n-m)
+        if [tmp_vector[i]*(-1)^(i+m)>0 for i in 1:(2^N-m)] == fill(true, 2^N-m)
             return 1 # yes, maximum. note i=r-m
-        elseif [tmp_vector[i]*(-1)^m>0 for i in 1:(2^n-m)] == fill(true, 2^n-m)
+        elseif [tmp_vector[i]*(-1)^m>0 for i in 1:(2^N-m)] == fill(true, 2^N-m)
             return -1 # no, minimum
         else
             return 0 # saddle-point or degenerate extrema
         end
     end
 end
+###
+classify_critical_point(real_sols[1])
+classify_critical_point(real_sols[2])
+subs(logL, [n;f] => [n₀; real_sols[2][1:16]])
