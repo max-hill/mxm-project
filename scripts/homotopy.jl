@@ -359,7 +359,12 @@ L = (1/2)*sum((f_inv).*square.(z.- ϵ))
 Lagrangian = L + λ*g
 #Jacobian Matrix 
 J = differentiate(Lagrangian,θ)
-C = System([J';f], variables = θ, parameters = z)
+C = System([J; g], variables = [θ; λ], parameters = z)
 
 # @u_0: input data for z 
-#res = solve(C; target_parameters = u₀)
+
+u₀ = rand(Float64, 16)
+
+res = solve(C; target_parameters = u₀)
+
+real_solutions(res)
