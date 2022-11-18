@@ -672,9 +672,10 @@ r = real_solutions(res)
 
 @var x y z[1:16] # For convenience, we write x := θ₂, y := α₄. z is the vector of data.
 site_patterns=Iterators.product(fill([1;-1],4)...)|>collect # Define 2x2x2x2 array
-site_patterns=map(i->reverse(B_tmp[i]),1:16) # reorder the site patterns and convert to list
+site_patterns=map(i->reverse(site_patterns[i]),1:16) # reorder the site patterns and convert to list
 reverse!(site_patterns) # reorder the list to be more natural
 s=site_patterns # rename it
+
 
 # Define least squares cost function
 
@@ -719,6 +720,7 @@ expr1=(512/3)*y+32*(z₁₁+z₆+z₈+z₉-z₁₀-z₁₂-z₅-z₇)*x+(32/3)*(
 expr2=-(512/3)*y+32*(z₁₀+z₁₂+z₅+z₇-z₁₁-z₆-z₈-z₉)*x+32/3*(z₁+z₁₄+z₁₆+z₃-z₁₃-z₁₅-z₂-z₄)*x+64*(z₁₀+z₁₂+z₅+z₇-z₁₁-z₆-z₈-z₉)*x^3+(64/3)*(z₁₃+z₁₅+z₂+z₄-z₁-z₁₄-z₁₆-z₃)*x^3+(2048/3)*x^4*y
 
 # For fun, let's solve the system for x,y for random data:
+
 my_system=System([expr1;expr2],variables=[x,y],parameters=z)
 random_z=rand(Float64, 16)
 
@@ -727,3 +729,24 @@ real_solutions(all_solutions)
 
 # Result: for generic data, this has three solutions: (0,0), (a,b) and (-a,-b),
 # where 0<a,b<1.
+
+# Compute the critical points analytically given data
+
+function crit_point_x(z₁, z₂, z₃, z₄, z₅, z₆, z₇, z₈, z₉, z₁₀, z₁₁, z₁₂, z₁₃, z₁₄, z₁₅, z₁₆)
+    A=513/3
+    B=32*(z₁₁+z₆+z₈+z₉-z₁₀-z₁₂-z₅-z₇)+(32/3)*(z₁₃+z₁₅+z₂+z₄-z₁₄-z₁₆-z₁-z₃)
+    C=1024/3
+    D=(64/3)*(z₁₃+z₁₅+z₂+z₄-z₁₄-z₁₆-z₁-z₃)-64*(z₁₁+z₆+z₈+z₉-z₁₀-z₁₂-z₅-z₇)
+    E=2048/3
+    return (2*A*D-B*C)/(2*B*E-C*D)
+end
+function crit_point_y(x, z₁, z₂, z₃, z₄, z₅, z₆, z₇, z₈, z₉, z₁₀, z₁₁, z₁₂, z₁₃, z₁₄, z₁₅, z₁₆)
+    A=513/3
+    B=32*(z₁₁+z₆+z₈+z₉-z₁₀-z₁₂-z₅-z₇)+(32/3)*(z₁₃+z₁₅+z₂+z₄-z₁₄-z₁₆-z₁-z₃)
+    C=1024/3
+    D=(64/3)*(z₁₃+z₁₅+z₂+z₄-z₁₄-z₁₆-z₁-z₃)-64*(z₁₁+z₆+z₈+z₉-z₁₀-z₁₂-z₅-z₇)
+    E=2048/3
+    return -(B*x+D*x^3)/(A+C*x^2+E*x^4)
+end
+crit_point_x(rand(Float64, 16)...)
+
