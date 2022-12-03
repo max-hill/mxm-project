@@ -673,7 +673,8 @@ r = real_solutions(res)
 @var x y z[1:16] # For convenience, we write x := θ₂, y := α₄. z is the vector of data.
 site_patterns=Iterators.product(fill([1;-1],4)...)|>collect # Define 2x2x2x2 array
 site_patterns=map(i->reverse(site_patterns[i]),1:16) # reorder the site patterns and convert to list
-reverse!(site_patterns) # reorder the list to be more natural
+reverse!(site_patterns) # reorder the list to be more natural (needs: ----,
+                        # ---+, --+-, --++, etc ordering)
 s=site_patterns # rename it
 
 
@@ -750,3 +751,14 @@ function crit_point_y(x, z₁, z₂, z₃, z₄, z₅, z₆, z₇, z₈, z₉, z
 end
 crit_point_x(rand(Float64, 16)...)
 
+
+
+z=[-0.07569865 -0.20756163 -0.34526203 -0.12047282  0.10219409  0.12883786 0.28248025  0.05504007  0.05976167 -0.03856399 -0.08039081  0.31282312 -0.46831276 -0.0255255   0.16268208  0.25796903]
+z=z'
+
+z=[ 0.21446296 -0.30243081 -0.06903343  0.01024257 -0.1291267  -0.18174438 -0.3028259   0.00650958  0.26431551 -0.0742944  -0.06907315  0.29076228 -0.00946552 -0.04134968  0.42652044 -0.03346936]
+
+B1=z[11]+z[6]+z[8]+z[9]-z[10]-z[12]-z[5]-z[7]
+B2=z[13]+z[15]+z[2]+z[4]-z[14]-z[16]-z[1]-z[3]
+
+(B2-9*B1)/(6*B1-2*B2)
