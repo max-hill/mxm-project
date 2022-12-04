@@ -1,25 +1,23 @@
  # Import necessary packages
-Pkg.add("PDMatsExtras")
-import Pkg; Pkg.add("Ipopt")
-import Pkg; Pkg.add("JuMP")
-using LinearAlgebra # this package comes with Julia, no need to install it
 import Pkg
+Pkg.add("PDMatsExtras")
+Pkg.add("Ipopt")
+Pkg.add("JuMP")
+using LinearAlgebra # this package comes with Julia, no need to install it
 using PDMatsExtras
 using Distributions
 using Ipopt,JuMP,LinearAlgebra,Distributions
 
-
+###
 # Define Site Patterns
-obs1 = [-1 -1 -1 -1 -1 -1 -1 -1 +1 +1 +1 +1 +1 +1 +1 +1; 
-        -1 -1 -1 -1 +1 +1 +1 +1 -1 -1 -1 -1 +1 +1 +1 +1;
-        -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1;
-        -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1]
+σ = [-1 -1 -1 -1 -1 -1 -1 -1 +1 +1 +1 +1 +1 +1 +1 +1; 
+     -1 -1 -1 -1 +1 +1 +1 +1 -1 -1 -1 -1 +1 +1 +1 +1;
+     -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1;
+     -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1]
 
 # The number of sites (i.e. samples)
 k = 100000000
 τ=1/2
-
-
 ###
 
 function test1(Z,τ,q)
@@ -43,14 +41,17 @@ function test1(Z,τ,q)
     @constraint(model,x4<=sqrt(k))
     @constraint(model,x5<=1)
     @NLconstraint(model,x1*x2*x5 == τ)
-    
+
     # Next specify the LS optimization problem. In particular, the third
     # argument is the objective function for this specific case (i.e. it is the
     # Least Squares function modified for case-specific constraints).
-    @NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                                       -obs1[2,i]*obs1[4,i]*x2*x4
-                                       -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                                       -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+    @NLobjective(model, Min, (1/2*sum(((Z[i]
+                                        -σ[1,i]*σ[3,i]*x1*x3
+                                        -σ[2,i]*σ[4,i]*x2*x4
+                                        -σ[1,i]*σ[4,i]*x1*x5*x4
+                                        -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i]
+                                      for i in 1:16)))
+    
     # Finds the optimum of the model
     optimize!(model)
 
@@ -61,6 +62,71 @@ function test1(Z,τ,q)
     # was achieved.
     return objective_value(model)
 end
+
+
+# Z=[ 0.04934314 -0.82975965 -0.26306304 -0.04340806  0.25569398 -0.10590171 0.15003828 -0.07734293 -0.11092292  0.19401209  0.33528518 -0.03549099 0.32687463 -0.19351553 -0.20589946  0.55405697]
+
+# Z=[-0.07569865 -0.20756163 -0.34526203 -0.12047282  0.10219409  0.12883786  0.28248025  0.05504007  0.05976167 -0.03856399 -0.08039081  0.31282312 -0.46831276 -0.0255255   0.16268208  0.25796903]
+
+# Z=[-0.03387992 -0.0866895   0.15985842  0.34824363  0.10192178  0.04614786 0.01067507  0.0722576   0.22797491  0.02374262  0.21537338 -0.11314237 -0.29763172 -0.40141176 -0.56426171  0.29082169]
+
+# Z=[ 0.21446296 -0.30243081 -0.06903343  0.01024257 -0.1291267  -0.18174438 -0.3028259   0.00650958  0.26431551 -0.0742944  -0.06907315  0.29076228 -0.00946552 -0.04134968  0.42652044 -0.03346936]
+
+# Z=[ 0.11754145  0.24720039  0.0185607  -0.15665281 -0.23870263 -0.07454299 -0.02028725 -0.17532972  0.27826045  0.39632972  0.20278634  0.19809686 0.04671502 -0.49806674 -0.41417643  0.07226764]
+
+###
+"This function applies the nonlinear optimization algorithm to Case 1 and
+    all its subcases (depending on the inputs used)"
+function my_test1(Z,τ,q,mins_θ,bounds_α₃,bounds_α₄)
+    # First, import function arguments
+    min_θ₁, min_θ₂, min_θ₅ = mins_θ[1], mins_θ[2], mins_θ[3]
+    min_α₃, max_α₃ = bounds_α₃[1], bounds_α₃[2]
+    min_α₄, max_α₄ = bounds_α₄[1], bounds_α₄[2]
+    # Next, define the model, along with all variables and constraints.
+    model = Model(Ipopt.Optimizer)
+    @variable(model, min_θ₁≤θ₁≤1)
+    @variable(model, min_θ₂≤θ₂≤1)
+    @variable(model, min_α₃≤α₃≤max_α₃)
+    @variable(model, min_α₄≤α₄≤max_α₄)
+    @variable(model, min_θ₅≤θ₅≤1)
+    @NLconstraint(model,θ₁*θ₂*θ₅ == τ)
+    # Define the least squares function we seek to minimize (this formula
+    # applies for case 1 and all its subcases):
+    objective_function=@NLexpression(model,
+                                     (1/2*sum(((Z[i]
+                                                -σ[1,i]*σ[3,i]*θ₁*α₃
+                                                -σ[2,i]*σ[4,i]*θ₂*α₄
+                                                -σ[1,i]*σ[4,i]*θ₁*θ₅*α₄
+                                                -σ[2,i]*σ[3,i]*θ₂*θ₅*α₃)^2)/q[i]
+                                              for i in 1:16)))
+    # Now do the optimization
+    @NLobjective(model, Min, objective_function)
+    optimize!(model)
+    # Return the result in the form [score, [coordinates], [bounds]]
+    return [objective_value(model),
+            [value(θ₁), value(θ₂), value(α₃), value(α₄), value(θ₅)],
+            [mins_θ, bounds_α₃, bounds_α₄]]
+end
+###
+
+###
+
+# Compute the scores for all 63 subcases of case 1.
+res = [my_test1(Z,1/2,q,mins_θ,bounds_α₃,bounds_α₄)
+       for mins_θ in [[0,0,0], [0,0,1], [0,1,0], [0,1,1], [1,0,0], [1,0,1], [1,1,0]]
+           for bounds_α₃ in [[0,0], [0, sqrt(k)], [sqrt(k),sqrt(k)]]
+               for bounds_α₄ in [[0,0], [0, sqrt(k)], [sqrt(k),sqrt(k)]]]
+
+length(scores)
+@show scores
+scores = map(i->res[i][1], 1:length(res))
+
+argmin(scores)
+
+res[argmin(scores)][3]
+
+###
+
 
 function test11(Z,τ,q)
 model = Model(Ipopt.Optimizer)
@@ -74,10 +140,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x5*x4
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x5*x4
+                -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -96,13 +162,15 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*x4
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
-asdgf =objective_value(model)
+    asdgf =objective_value(model)
+    value(x1)
+    value(x5)
     return objective_value(model)
 end
 
@@ -118,13 +186,14 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
-asdgf =objective_value(model)
+    asdgf =objective_value(model)
+    val = [value(x1),value(x2),value(x3),value(x4),value(x5)]
     return objective_value(model)
 end
 
@@ -140,10 +209,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -162,10 +231,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x2*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -182,10 +251,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x5*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x5*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -202,10 +271,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -213,22 +282,22 @@ asdgf =objective_value(model)
 end
 
 function test113(Z,τ,q)
-model = Model(Ipopt.Optimizer)
-@variable(model,x1>=0)
-@variable(model,x4>=0)
-@variable(model,x5>=0)
-#set each one variable to be larger than 0
-@constraint(model,x1<=1)
-@constraint(model,x4<=sqrt(k))
-@constraint(model,x5<=1)
-@NLconstraint(model,x1*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
-optimize!(model)
-status = termination_status(model)
-asdgf =objective_value(model)
+    model = Model(Ipopt.Optimizer)
+    @variable(model,x1>=0)
+    @variable(model,x4>=0)
+    @variable(model,x5>=0)
+    #set each one variable to be larger than 0
+    @constraint(model,x1<=1)
+    @constraint(model,x4<=sqrt(k))
+    @constraint(model,x5<=1)
+    @NLconstraint(model,x1*x5 == τ)
+    @NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                                       -σ[2,i]*σ[4,i]*x4
+                                       -σ[1,i]*σ[4,i]*x1*x5*x4
+                                       -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
+    optimize!(model)
+    status = termination_status(model)
+    asdgf =objective_value(model)
     return objective_value(model)
 end
 
@@ -242,10 +311,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -262,10 +331,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -282,10 +351,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -302,10 +371,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x5*x4
-                -obs1[2,i]*obs1[3,i]*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*x4
+                -σ[1,i]*σ[4,i]*x5*x4
+                -σ[2,i]*σ[3,i]*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -322,10 +391,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -342,10 +411,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*x2*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -360,10 +429,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x5*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x4
+                -σ[1,i]*σ[4,i]*x5*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -378,10 +447,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -396,10 +465,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x1<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -414,10 +483,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x1<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -432,10 +501,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -450,10 +519,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -474,10 +543,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -497,10 +566,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*x5*x4
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*x5*x4
+                -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -519,10 +588,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -541,10 +610,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*0*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x2*x5*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*0*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x2*x5*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -563,10 +632,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*0*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*0
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x2*0*x5
+                -σ[1,i]*σ[4,i]*x1*x5*0
+                -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -585,10 +654,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x2*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -605,10 +674,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*x5*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*x5*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -625,10 +694,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*0*x5
-                -obs1[2,i]*obs1[4,i]*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x5*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*0*x5
+                -σ[2,i]*σ[4,i]*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x5*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -645,10 +714,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*0*x5
-                -obs1[1,i]*obs1[4,i]*x5*0
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3*x5
+                -σ[2,i]*σ[4,i]*x2*0*x5
+                -σ[1,i]*σ[4,i]*x5*0
+                -σ[2,i]*σ[3,i]*x2*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -665,10 +734,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x5*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x5*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -685,10 +754,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*x2*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -705,10 +774,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1== τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -725,10 +794,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*0
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*0
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -745,10 +814,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -769,11 +838,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x1*x2*x3*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x2*x5*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x1*x2*x3*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -792,11 +861,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*x5*x4
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x2*x3*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*x5*x4
+                -σ[2,i]*σ[3,i]*x2*x5*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x2*x3*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -815,11 +884,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x5*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x1*x3*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x5*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x1*x3*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -838,11 +907,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*0*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*x2*x5*0
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x1*x2*0*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*0*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*x2*x5*0
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x1*x2*0*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -861,11 +930,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*0*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*0
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x1*x2*x3*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x2*0*x5
+                -σ[1,i]*σ[4,i]*x1*x5*0
+                -σ[2,i]*σ[3,i]*x2*x5*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x1*x2*x3*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -884,11 +953,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*1
-                -obs1[2,i]*obs1[4,i]*x2*x4*1
-                -obs1[1,i]*obs1[4,i]*x1*1*x4
-                -obs1[2,i]*obs1[3,i]*x2*1*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x1*x2*x3*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*1
+                -σ[2,i]*σ[4,i]*x2*x4*1
+                -σ[1,i]*σ[4,i]*x1*1*x4
+                -σ[2,i]*σ[3,i]*x2*1*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x1*x2*x3*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -905,11 +974,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5
-                -obs1[1,i]*obs1[4,i]*1*x5*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x2*0*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4*x5
+                -σ[1,i]*σ[4,i]*1*x5*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x2*0*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -926,11 +995,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x4*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x4*x5
+                -σ[1,i]*σ[4,i]*x1*x5*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -947,11 +1016,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*0
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x1*x2*0*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*0
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x1*x2*0*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -968,11 +1037,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3*x5
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x5*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3*x5
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x5*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -989,11 +1058,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*0*x5
-                -obs1[1,i]*obs1[4,i]*x1*x5*0
-                -obs1[2,i]*obs1[3,i]*x5*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*0*x5
+                -σ[1,i]*σ[4,i]*x1*x5*0
+                -σ[2,i]*σ[3,i]*x5*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1010,11 +1079,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1031,11 +1100,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x2*x3*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x2*x3*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1052,11 +1121,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*x2*x3*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*x2*x3*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1071,11 +1140,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4
-                -obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4
+                -σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1090,11 +1159,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x1<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*0
-                -obs1[2,i]*obs1[4,i]*x4
-                -obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*0
+                -σ[2,i]*σ[4,i]*x4
+                -σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1109,11 +1178,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1128,11 +1197,11 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x1<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0
-                -obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x3
-                -obs1[1,i]*obs1[2,i]*obs1[3,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0
+                -σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x3
+                -σ[1,i]*σ[2,i]*σ[3,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1153,10 +1222,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1175,10 +1244,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[3,i]*x3*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[3,i]*x3*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1197,10 +1266,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x3
-                -obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*x4*x5)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x3
+                -σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*x4*x5)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1219,10 +1288,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[3,i]*x1*0*x5
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[3,i]*x1*0*x5
+                -σ[2,i]*σ[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1241,10 +1310,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1263,10 +1332,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*x2*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1283,10 +1352,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*x3
-                -obs1[1,i]*obs1[3,i]*x3*x5
-                -obs1[2,i]*obs1[4,i]*x4*x5)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*x3
+                -σ[1,i]*σ[3,i]*x3*x5
+                -σ[2,i]*σ[4,i]*x4*x5)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1303,10 +1372,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4*x5)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1323,10 +1392,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x2*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[3,i]*x3*x5
-                -obs1[2,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[3,i]*x3*x5
+                -σ[2,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1343,10 +1412,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x4
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[3,i]*x3
-                -obs1[2,i]*obs1[4,i]*x2*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x4
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[3,i]*x3
+                -σ[2,i]*σ[4,i]*x2*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1363,10 +1432,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x4<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x4*x5)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x4*x5)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1383,10 +1452,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x5<=1)
 @NLconstraint(model,x1*x5 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x3
-                -obs1[1,i]*obs1[3,i]*x1*x3*x5
-                -obs1[2,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x3
+                -σ[1,i]*σ[3,i]*x1*x3*x5
+                -σ[2,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1403,10 +1472,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x3<=sqrt(k))
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*x3
-                -obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*x3
+                -σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1423,10 +1492,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x4<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*x1*x4
-                -obs1[2,i]*obs1[3,i]*0
-                -obs1[1,i]*obs1[3,i]*0
-                -obs1[2,i]*obs1[4,i]*x2*x4)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*x1*x4
+                -σ[2,i]*σ[3,i]*0
+                -σ[1,i]*σ[3,i]*0
+                -σ[2,i]*σ[4,i]*x2*x4)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1443,10 +1512,10 @@ model = Model(Ipopt.Optimizer)
 @constraint(model,x2<=1)
 @constraint(model,x3<=sqrt(k))
 @NLconstraint(model,x1*x2 == τ)
-@NLobjective(model, Min, 1/2*sum(((Z[i]-obs1[1,i]*obs1[4,i]*0
-                -obs1[2,i]*obs1[3,i]*x2*x3
-                -obs1[1,i]*obs1[3,i]*x1*x3
-                -obs1[2,i]*obs1[4,i]*0)^2)/q[i] for i in 1:16))
+@NLobjective(model, Min, 1/2*sum(((Z[i]-σ[1,i]*σ[4,i]*0
+                -σ[2,i]*σ[3,i]*x2*x3
+                -σ[1,i]*σ[3,i]*x1*x3
+                -σ[2,i]*σ[4,i]*0)^2)/q[i] for i in 1:16))
 optimize!(model)
 status = termination_status(model)
 asdgf =objective_value(model)
@@ -1456,10 +1525,10 @@ end
 function getforonetime(Z,τ,q)
     testwhole = zeros(4,25) .+100 # Matrix to store results (default value of
                                   # 100 which is so large it will be ignored).
-                                  # The values of this matrix will be the value
-                                  # of the objective function (The Least Squares
-                                  # score – we want to find the case with the
-                                  # smallest value)
+                                  # The values of this matrix will store the
+                                  # values of the objective function (The Least
+                                  # Squares score – we want to find the case
+                                  # with the smallest value)
     testwhole = settest1(testwhole,Z,τ,q) # Run all subcases of Case 1.
     testwhole = settest2(testwhole,Z,τ,q) # Run all subcases of Case 2, option 1
                                           
@@ -1553,7 +1622,7 @@ function settest4(testwhole,Z,τ,q)
     return testwhole
 end
 
-###
+
 count = zeros(4,25)
 
 
@@ -1565,9 +1634,8 @@ function setcount(τ)
 
     # Compute the true probability of each site pattern under the data generation
     # setting.
-    q = zeros(16)
-    for j = 1:16;  q[j] = (1 / 16) * (1 + obs1[1, j] * obs1[2, j] * τ); end
-
+    q = [ (1/16) * (1 + σ[1,j] * σ[2,j] * τ) for j in 1:16]
+    
     # We will approximate date generated under the DATA GENERATION SETTING using
     # data generated by a multivariate gaussian (by CLT this is good approxmation
     # for k large). The appropriate mean and covariance matrix for this
