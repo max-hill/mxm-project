@@ -3,7 +3,8 @@ import Pkg
 Pkg.add("PDMatsExtras")
 Pkg.add("Ipopt")
 Pkg.add("JuMP")
-###
+
+### DEFINE GLOBAL VARIABLES AND TEST FUNCTION
 using PDMatsExtras,Ipopt,JuMP,LinearAlgebra,Distributions
 # Define Site Patterns. Gobal variable
 σ = [-1 -1 -1 -1 -1 -1 -1 -1 +1 +1 +1 +1 +1 +1 +1 +1; 
@@ -19,17 +20,10 @@ q = [ (1/16) * (1 + σ[1,j] * σ[2,j] * τ) for j in 1:16] # Global Variable
 # for k large). The appropriate mean and covariance matrix for this
 # approximation are defined next.
 mean, cov = k*q, PSDMat(k*(diagm(q)-q*q'))
-d = MvNormal(mean, cov) # Our multivariate gaussian which approximates large-k
-                        # data
-
-# Generate a the data vector (which takes the form of the deviation of
-# sample frequencies from true probabilities)
-Z = (rand(d)-mean)/sqrt(k)
-###
+d = MvNormal(mean, cov) # Multivariate gaussian which approximates large-k data
 
 "This function applies the nonlinear optimization algorithm to any subcase of
 Case 1, Case 2, or Case 3. (depending on the inputs used)"
-
 function testSubcase(case,Z,
                    min_θ₁,max_θ₁,
                    min_θ₂,max_θ₂,
@@ -86,14 +80,12 @@ function testSubcase(case,Z,
             case]
 end
 ###
-testSubcase(1,Z,0,1,0,1,0,sqrt(k),0,sqrt(k),0,1)
-testSubcase(2,Z,0,1,0,1,0,sqrt(k),0,sqrt(k),0,0)
-testSubcase(3,Z,0,1,0,1,0,sqrt(k),0,sqrt(k),0,1)
-###
+
+### RUN THE TEST 100 TIMES, COUNTING WHICH CASE IS BEST
 case1_counter=0
 case2_counter=0
 case3_counter=0
-for n in 1:10
+for n in 1:100
     Z = (rand(d)-mean)/sqrt(k)
     # Test all the subcases of case 1:
     res1 = [testSubcase(1,Z,θ_bounds[1]...,θ_bounds[2]...,α₃_bounds...,α₄_bounds...,θ_bounds[3]...)
