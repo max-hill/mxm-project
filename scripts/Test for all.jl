@@ -90,30 +90,39 @@ testSubcase(1,Z,0,1,0,1,0,sqrt(k),0,sqrt(k),0,1)
 testSubcase(2,Z,0,1,0,1,0,sqrt(k),0,sqrt(k),0,0)
 testSubcase(3,Z,0,1,0,1,0,sqrt(k),0,sqrt(k),0,1)
 ###
-# Test all the subcases of case 1.
-Z = (rand(d)-mean)/sqrt(k)
-res1 = [testSubcase(1,Z,θ_bounds[1]...,θ_bounds[2]...,α₃_bounds...,α₄_bounds...,θ_bounds[3]...)
-       for θ_bounds in [[[0,1], [0,1], [0,1]], [[0,1], [0,1], [1,1]], [[0,1], [1,1], [0,1]], [[1,1], [0,1], [0,1]], [[1,1], [1,1], [0,1]], [[1,1], [0,1], [1,1]], [[0,1], [1,1], [1,1]]]
-           for α₃_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]
-               for α₄_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]]
-# Test all the subcases of case 2.
-res2 = [testSubcase(2,Z,θ₁₂_bounds[1]...,θ₁₂_bounds[2]...,α₃_bounds...,α₄_bounds...,θ₅_bounds...)
-       for θ₁₂_bounds in [[[0,1], [0,1]], [[0,1], [1,1]], [[1,1], [0,1]]]
-           for θ₅_bounds in [[0,1], [0,0], [1,1]]
-           for α₃_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]
-               for α₄_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]]
-# Test all the subcases of case 1.
-res3 = [testSubcase(3,Z,θ_bounds[1]...,θ_bounds[2]...,α₃_bounds...,α₄_bounds...,θ_bounds[3]...)
-       for θ_bounds in [[[0,1], [0,1], [0,1]], [[0,1], [0,1], [1,1]], [[0,1], [1,1], [0,1]], [[1,1], [0,1], [0,1]], [[1,1], [1,1], [0,1]], [[1,1], [0,1], [1,1]], [[0,1], [1,1], [1,1]]]
-           for α₃_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]
-               for α₄_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]]
-case1scores=[x[1] for x in res1]
-case2scores=[x[1] for x in res2]
-case3scores=[x[1] for x in res3]
-minimum(case1scores)
-minimum(case2scores)
-minimum(case3scores)
-
+case1_counter=0
+case2_counter=0
+case3_counter=0
+for n in 1:10
+    Z = (rand(d)-mean)/sqrt(k)
+    # Test all the subcases of case 1:
+    res1 = [testSubcase(1,Z,θ_bounds[1]...,θ_bounds[2]...,α₃_bounds...,α₄_bounds...,θ_bounds[3]...)
+            for θ_bounds in [[[0,1], [0,1], [0,1]], [[0,1], [0,1], [1,1]], [[0,1], [1,1], [0,1]], [[1,1], [0,1], [0,1]], [[1,1], [1,1], [0,1]], [[1,1], [0,1], [1,1]], [[0,1], [1,1], [1,1]]]
+                for α₃_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]
+                    for α₄_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]]
+    # Test all the subcases of case 2:
+    res2 = [testSubcase(2,Z,θ₁₂_bounds[1]...,θ₁₂_bounds[2]...,α₃_bounds...,α₄_bounds...,θ₅_bounds...)
+            for θ₁₂_bounds in [[[0,1], [0,1]], [[0,1], [1,1]], [[1,1], [0,1]]]
+                for θ₅_bounds in [[0,1], [0,0], [1,1]]
+                    for α₃_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]
+                        for α₄_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]]
+    # Test all the subcases of case 1:
+    res3 = [testSubcase(3,Z,θ_bounds[1]...,θ_bounds[2]...,α₃_bounds...,α₄_bounds...,θ_bounds[3]...)
+            for θ_bounds in [[[0,1], [0,1], [0,1]], [[0,1], [0,1], [1,1]], [[0,1], [1,1], [0,1]], [[1,1], [0,1], [0,1]], [[1,1], [1,1], [0,1]], [[1,1], [0,1], [1,1]], [[0,1], [1,1], [1,1]]]
+                for α₃_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]
+                    for α₄_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]]
+    m1=minimum([x[1] for x in res1])
+    m2=minimum([x[1] for x in res2])
+    m3=minimum([x[1] for x in res3])
+    if m1 == minimum([m1,m2,m3])
+        case1_counter = case1_counter + 1
+    elseif m2 == minimum([m1,m2,m3])
+        case2_counter = case2_counter + 1
+    else
+        case3_counter = case3_counter + 1
+    end
+end
+[case1_counter,case2_counter,case3_counter]
 ###
 
 
