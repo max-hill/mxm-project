@@ -82,11 +82,11 @@ end
 ###
 
 ### RUN THE TEST 100 TIMES, COUNTING WHICH CASE IS BEST
-N = 10000 # samples
-case1_counter, case2_counter, case3_counter, equal_1_and_2 = 0,0,0,0
-m1_list = []
-m2_list = []
-m3_list = []
+N = 100 # samples
+case1_counter, case2_counter, case3_counter = 0,0,0
+m1_list, m2_list, m3_list = [],[],[]
+m1_processed_list, m2_processed_list, m3_processed_list = [],[],[]
+case1_counter_processed,case2_counter_processed,case3_counter_processed = 0,0,0
 for n in 1:N
     Z = (rand(d)-mean)/sqrt(k)
     # Test all the subcases of case 1:
@@ -105,31 +105,79 @@ for n in 1:N
             for θ_bounds in [[[0,1], [0,1], [0,1]], [[0,1], [0,1], [1,1]], [[0,1], [1,1], [0,1]], [[1,1], [0,1], [0,1]], [[1,1], [1,1], [0,1]], [[1,1], [0,1], [1,1]], [[0,1], [1,1], [1,1]]]
                 for α₃_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]
                     for α₄_bounds in [[0,sqrt(k)], [0,0], [sqrt(k),sqrt(k)]]]
+
+    # Record information about (unprocessed) data
     m1=minimum([x[1] for x in res1])
     m2=minimum([x[1] for x in res2])
     m3=minimum([x[1] for x in res3])
     push!(m1_list,m1)
     push!(m2_list,m2)
     push!(m3_list,m3)
-    if m1 == m2
-        equal_1_and_2 = equal_1_and_2 + 1
-    end
-    if m1 == minimum([m1,m2,m3])
-        case1_counter = case1_counter + 1
-    end
-    if m2 == minimum([m1,m2,m3])
-        case2_counter = case2_counter + 1
-    end
-    if m3 == minimum([m1,m2,m3])
-        case3_counter = case3_counter + 1
-    end
+    minimum_score = minimum([m1,m2,m3])
+    case1_counter = case1_counter + (m1 == minimum_score)
+    case2_counter = case2_counter + (m2 == minimum_score)
+    case3_counter = case3_counter + (m3 == minimum_score)
+    
+    # OPTIONAL: Process data by excluding subcases where optimal point appears
+    # to be converging to boundary. 
+    res1_processed=[exclude_if_bad(res1[i]) for i in 1:63]
+    res2_processed=[exclude_if_bad(res2[i]) for i in 1:81]
+    res3_processed=[exclude_if_bad(res3[i]) for i in 1:63]
+    m1_processed=minimum([x[1] for x in res1_processed])
+    m2_processed=minimum([x[1] for x in res2_processed])
+    m3_processed=minimum([x[1] for x in res3_processed])
+    push!(m1_processed_list,m1_processed)
+    push!(m2_processed_list,m2_processed)
+    push!(m3_processed_list,m3_processed)
+    processed_min = minimum([m1_processed,m2_processed,m3_processed])
+    case1_counter_processed = case1_counter_processed + (m1_processed == processed_min)
+    case2_counter_processed = case2_counter_processed + (m2_processed == processed_min)
+    case3_counter_processed = case3_counter_processed + (m3_processed == processed_min)
 end
+# Data output
 [case1_counter,case2_counter,case3_counter]
+[case1_counter_processed,case2_counter_processed,case3_counter_processed]
+
 sum(abs.(m1_list-m2_list))/N
 sum(abs.(m1_list-m3_list))/N
 sum([m2_list[i]-m3_list[i]==0 for i in 1:100])
 ###
 
+
+
+
+"Tests a single subcase to determine whether the critical point appears to be
+properly within the interior of that subcase or if it appears that the critical
+point lives on the boundary. If the latter, then set the score to 10000 (in
+order to exclude that case). Otherwise return the input without change. The
+input to this function should be the output of testSubcase. The output takes the
+same form, with the score possibly modified."
+function exclude_if_bad(v)
+    variable_is_near_boundary_p(x,bound)=(abs(x-bound[1])<10e-5 || abs(x-bound[2])<10e-5)
+    variable_is_unconstrained_p(bound)=(bound[1] != bound[2])
+    values = v[2]
+    bounds = v[3]
+    for i in 1:5
+        variable=values[i]
+        bound=bounds[i]
+        # if the ith variable is not constrained but is near the boundary, exclude the case
+        if variable_is_unconstrained_p(bound) && variable_is_near_boundary_p(variable,bound)
+            rest_of_v = [v[i] for i in 2:4]
+            return [1000000,rest_of_v...]
+        end
+    end
+    return v
+end
+
+
+
+
+
+# N=10000
+# k=10000000
+# 4205
+# 3589
+# 4126
 
 # Z=[ 0.04934314 -0.82975965 -0.26306304 -0.04340806  0.25569398 -0.10590171 0.15003828 -0.07734293 -0.11092292  0.19401209  0.33528518 -0.03549099 0.32687463 -0.19351553 -0.20589946  0.55405697]
 # Z=[-0.07569865 -0.20756163 -0.34526203 -0.12047282  0.10219409  0.12883786  0.28248025  0.05504007  0.05976167 n-0.03856399 -0.08039081  0.31282312 -0.46831276 -0.0255255   0.16268208  0.25796903]
