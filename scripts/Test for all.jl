@@ -11,7 +11,7 @@ using PDMatsExtras,Ipopt,JuMP,LinearAlgebra,Distributions
      -1 -1 -1 -1 +1 +1 +1 +1 -1 -1 -1 -1 +1 +1 +1 +1;
      -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1;
      -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1]
-k = 100000000 # The number of sites (i.e. samples). Global Variable
+k = 10000000 # The number of sites (i.e. samples). Global Variable
 τ=1/2 # Distance between leaves 1 and 2. Global variable
 q = [ (1/16) * (1 + σ[1,j] * σ[2,j] * τ) for j in 1:16] # Global Variable
 
@@ -82,10 +82,12 @@ end
 ###
 
 ### RUN THE TEST 100 TIMES, COUNTING WHICH CASE IS BEST
-case1_counter=0
-case2_counter=0
-case3_counter=0
-for n in 1:100
+N = 10000 # samples
+case1_counter, case2_counter, case3_counter, equal_1_and_2 = 0,0,0,0
+m1_list = []
+m2_list = []
+m3_list = []
+for n in 1:N
     Z = (rand(d)-mean)/sqrt(k)
     # Test all the subcases of case 1:
     res1 = [testSubcase(1,Z,θ_bounds[1]...,θ_bounds[2]...,α₃_bounds...,α₄_bounds...,θ_bounds[3]...)
@@ -106,15 +108,26 @@ for n in 1:100
     m1=minimum([x[1] for x in res1])
     m2=minimum([x[1] for x in res2])
     m3=minimum([x[1] for x in res3])
+    push!(m1_list,m1)
+    push!(m2_list,m2)
+    push!(m3_list,m3)
+    if m1 == m2
+        equal_1_and_2 = equal_1_and_2 + 1
+    end
     if m1 == minimum([m1,m2,m3])
         case1_counter = case1_counter + 1
-    elseif m2 == minimum([m1,m2,m3])
+    end
+    if m2 == minimum([m1,m2,m3])
         case2_counter = case2_counter + 1
-    else
+    end
+    if m3 == minimum([m1,m2,m3])
         case3_counter = case3_counter + 1
     end
 end
 [case1_counter,case2_counter,case3_counter]
+sum(abs.(m1_list-m2_list))/N
+sum(abs.(m1_list-m3_list))/N
+sum([m2_list[i]-m3_list[i]==0 for i in 1:100])
 ###
 
 
