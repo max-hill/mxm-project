@@ -11,7 +11,7 @@ using PDMatsExtras,Ipopt,JuMP,LinearAlgebra,Distributions
      -1 -1 -1 -1 +1 +1 +1 +1 -1 -1 -1 -1 +1 +1 +1 +1;
      -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1 -1 -1 +1 +1;
      -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1 -1 +1]
-k = 10000000 # The number of sites (i.e. samples). Global Variable
+# k = 10000000 # The number of sites (i.e. samples). Global Variable
 τ=1/2 # Distance between leaves 1 and 2. Global variable
 q = [ (1/16) * (1 + σ[1,j] * σ[2,j] * τ) for j in 1:16] # Global Variable
 
@@ -83,6 +83,7 @@ end
 
 ### RUN THE TEST 100 TIMES, COUNTING WHICH CASE IS BEST
 N = 100 # samples
+k = 10000000000 # sites
 case1_counter, case2_counter, case3_counter = 0,0,0
 m1_list, m2_list, m3_list = [],[],[]
 m1_processed_list, m2_processed_list, m3_processed_list = [],[],[]
@@ -141,6 +142,11 @@ end
 sum(abs.(m1_list-m2_list))/N
 sum(abs.(m1_list-m3_list))/N
 sum([m2_list[i]-m3_list[i]==0 for i in 1:100])
+
+
+sum(abs.(m1_processed_list-m2_processed_list))/N
+sum(abs.(m1_processed_list-m3_processed_list))/N
+sum([m2_processed_list[i]-m3_processed_list[i]==0 for i in 1:100])
 ###
 
 
@@ -171,13 +177,23 @@ end
 
 
 
+N=100
+k=10000000
+Original mode:
+Case 1: 37
+Case 2: 38
+Case 3: 35
+Excluding 'bad' cases:
+Case 1: 51
+Case 2: 56
+Case 3: 50
 
 
-# N=10000
-# k=10000000
-# 4205
-# 3589
-# 4126
+N=10000
+k=10000000
+Case 1: 4205
+Case 2: 3589
+Case 3: 4126
 
 # Z=[ 0.04934314 -0.82975965 -0.26306304 -0.04340806  0.25569398 -0.10590171 0.15003828 -0.07734293 -0.11092292  0.19401209  0.33528518 -0.03549099 0.32687463 -0.19351553 -0.20589946  0.55405697]
 # Z=[-0.07569865 -0.20756163 -0.34526203 -0.12047282  0.10219409  0.12883786  0.28248025  0.05504007  0.05976167 n-0.03856399 -0.08039081  0.31282312 -0.46831276 -0.0255255   0.16268208  0.25796903]
